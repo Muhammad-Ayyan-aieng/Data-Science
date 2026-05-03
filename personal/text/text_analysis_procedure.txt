@@ -1,0 +1,76 @@
+START analyze_description_text()
+  │
+  ▼
+Load cleaned_accidents.csv
+  │
+  ▼
+═══════════════════════════════════════════════════════
+SECTION 1: EXTRACT KEYWORDS
+═══════════════════════════════════════════════════════
+  │
+  ├──► Define severity_keywords dictionary
+  │     (high, medium, low severity keywords)
+  │
+  ├──► For each severity level:
+  │      Create boolean column (has_high_severity, etc.)
+  │      Mark True if ANY keyword appears
+  │
+  └──► Print count of accidents with each keyword type
+  │
+  ▼
+═══════════════════════════════════════════════════════
+SECTION 2: KEYWORD vs SEVERITY COMPARISON
+═══════════════════════════════════════════════════════
+  │
+  └──► For each severity level:
+         Calculate avg severity with keywords
+         Calculate avg severity without keywords
+         Print difference
+  │
+  ▼
+═══════════════════════════════════════════════════════
+SECTION 3: SPECIFIC KEYWORD IMPACT
+═══════════════════════════════════════════════════════
+  │
+  └──► For each specific keyword:
+         Count accidents containing it
+         Calculate average severity
+         Print results
+  │
+  ▼
+═══════════════════════════════════════════════════════
+SECTION 4: 'BLOCKED' KEYWORD DETAILED ANALYSIS
+═══════════════════════════════════════════════════════
+  │
+  ├──► Calculate severity distribution WITH 'blocked'
+  └──► Calculate severity distribution WITHOUT 'blocked'
+  │
+  ▼
+═══════════════════════════════════════════════════════
+SECTION 5: MOST COMMON PHRASES BY SEVERITY
+═══════════════════════════════════════════════════════
+  │
+  ├──► For severity 2, 3, 4:
+  │      Extract all descriptions
+  │      Use CountVectorizer to find top 5 phrases
+  │      Print phrases and frequencies
+  │
+  ▼
+═══════════════════════════════════════════════════════
+SECTION 6: SUMMARY
+═══════════════════════════════════════════════════════
+  │
+  └──► Print key findings:
+         - High severity keyword statistics
+         - Text predicts severity conclusion
+         - Why Pearson correlation failed
+         - Recommendation for ML/NLP
+  │
+  ▼
+RETURN df
+  │
+  ▼
+END
+
+
+
