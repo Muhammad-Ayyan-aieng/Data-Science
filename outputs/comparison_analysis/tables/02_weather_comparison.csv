@@ -1,0 +1,5 @@
+Weather_Factor,Georgia,Connecticut,Difference,P_Value,Significant
+Temperature(F),64.26,54.66,9.61,0.0,True
+Humidity(%),69.22,66.35,2.86,0.0,True
+Precipitation(in),0.01,0.01,0.0,0.0001,True
+Visibility(mi),9.0,8.93,0.07,0.0,True

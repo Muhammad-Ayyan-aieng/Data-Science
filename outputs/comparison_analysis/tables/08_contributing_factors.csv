@@ -1,0 +1,8 @@
+Condition,Georgia_Severity,Connecticut_Severity,Difference
+Morning accidents,2.434,2.331,0.102
+Afternoon accidents,2.531,2.343,0.189
+Evening accidents,2.551,2.372,0.18
+Night accidents,2.604,2.356,0.248
+At Junction,2.497,2.318,0.179
+At Traffic_Signal,2.199,2.468,-0.268
+At Crossing,2.175,2.463,-0.289

@@ -1,0 +1,16 @@
+Severity_Level,Rank,Phrase,Frequency
+2,1,lane blocked,22082
+2,2,rd exit,17365
+2,3,stationary traffic,16593
+2,4,slow traffic,14595
+2,5,right lane,12471
+3,1,blocked accident,44418
+3,2,lane blocked,37729
+3,3,lane blocked accident,27695
+3,4,accident 75,15280
+3,5,southbound exit,14706
+4,1,road closed,12872
+4,2,closed accident,8659
+4,3,road closed accident,8493
+4,4,alternate route,4364
+4,5,closed alternate route,4348

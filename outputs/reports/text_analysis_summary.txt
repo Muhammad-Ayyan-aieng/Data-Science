@@ -1,8 +1,0 @@
-======================================================================
-TEXT ANALYSIS SUMMARY
-======================================================================
-
-High severity keywords present in: 87,971 accidents (36.6%)
-Average severity with keywords: 2.65
-Average severity without keywords: 2.35
-Difference: +0.29

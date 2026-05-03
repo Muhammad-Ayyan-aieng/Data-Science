@@ -1,4 +1,0 @@
-Keyword_Type,Severity_When_Present,Severity_When_Absent,Difference,Interpretation
-HIGH_SEVERITY,2.632,2.3553,0.2768,Higher when present
-MEDIUM_SEVERITY,2.44,2.4722,-0.0322,Lower when present
-LOW_SEVERITY,2.5383,2.3642,0.1741,Higher when present

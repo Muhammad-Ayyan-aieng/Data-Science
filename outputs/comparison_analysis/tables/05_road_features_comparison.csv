@@ -1,0 +1,9 @@
+Road_Feature,Georgia_%,Connecticut_%,Difference,P_Value,Significant
+Junction,8.5,11.9,-3.4,0.0,True
+Traffic_Signal,10.0,3.4,6.5,0.0,True
+Crossing,5.7,3.2,2.5,0.0,True
+Railway,0.6,0.2,0.4,0.0,True
+Stop,0.7,1.2,-0.5,0.0,True
+Traffic_Calming,0.1,0.0,0.1,0.0,True
+Roundabout,0.0,0.0,0.0,1.0,False
+Amenity,0.4,0.5,-0.1,0.0081,True

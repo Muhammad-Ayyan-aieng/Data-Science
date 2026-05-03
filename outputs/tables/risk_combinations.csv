@@ -1,6 +1,0 @@
-Combination,Accident_Count,Percentage_of_Total,Avg_Severity,Severe_Accidents_Pct,Difference_from_Baseline_Avg,Difference_from_Baseline_Severe
-Junction + No Traffic Signal + Crossing,198,0.08,2.6566,64.65,0.1969,25.28
-Junction + Traffic Signal,309,0.13,2.5178,47.57,0.0581,8.21
-Railway Crossing + No Signal,843,0.35,2.503,36.54,0.0433,-2.83
-School Zone (Amenity + Crossing),440,0.18,2.0864,6.59,-0.3733,-32.77
-High Risk Intersection (Junction + Crossing + No Roundabout),396,0.16,2.6591,63.89,0.1994,24.53
