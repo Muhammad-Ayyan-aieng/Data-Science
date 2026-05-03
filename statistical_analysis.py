@@ -2,13 +2,32 @@
 """
 Step 3: Statistical Analysis of Cleaned Accident Data
 Calculates central tendency, dispersion, correlations, and categorical distributions
-Exports ALL results to CSV files for visualization and reporting
+Exports to: 1 Excel file, 1 Word file, multiple CSV files
 """
 
 import pandas as pd
 import numpy as np
 import os
 from scipy import stats
+from datetime import datetime
+
+# Optional imports for Excel and Word
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill
+    HAS_OPENPYXL = True
+except ImportError:
+    HAS_OPENPYXL = False
+    print("⚠️ openpyxl not installed. Excel export limited.")
+
+try:
+    from docx import Document
+    from docx.shared import Inches, Pt
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    HAS_PYTHON_DOCX = True
+except ImportError:
+    HAS_PYTHON_DOCX = False
+    print("⚠️ python-docx not installed. Word export limited.")
 
 def run_statistical_analysis():
     """Main function to perform statistical analysis on cleaned data"""
@@ -18,443 +37,426 @@ def run_statistical_analysis():
     print("=" * 70)
     
     # Create output folders
-    os.makedirs("outputs/tables", exist_ok=True)
-    os.makedirs("outputs/reports", exist_ok=True)
+    os.makedirs("outputs/statistical_analysis/tables", exist_ok=True)
+    os.makedirs("outputs/statistical_analysis/reports", exist_ok=True)
     
-    # Define file path
+    # Load data
     input_file = os.path.join("datasets", "cleaned_accidents.csv")
     
-    # Check if cleaned data exists
     if not os.path.exists(input_file):
         print(f"\n❌ ERROR: {input_file} not found!")
         print("   Please run data_cleaning.py first")
         return None
     
-    # Load cleaned data
     print(f"\n📂 Loading {input_file}...")
     df = pd.read_csv(input_file)
     print(f"✅ Loaded {len(df):,} accidents")
     print(f"✅ Columns: {len(df.columns)}")
     
-    # ============================================
-    # SECTION 1: NUMERICAL FEATURES ANALYSIS
-    # ============================================
-    print("\n" + "=" * 70)
-    print("SECTION 1: NUMERICAL FEATURES ANALYSIS")
-    print("=" * 70)
+    # Date range if available
+    if 'Start_Time' in df.columns:
+        df['Start_Time'] = pd.to_datetime(df['Start_Time'])
+        print(f"📅 Date range: {df['Start_Time'].min().date()} to {df['Start_Time'].max().date()}")
     
-    # Select numerical columns for analysis
+    # =========================================================
+    # SECTION 1: NUMERICAL FEATURES SUMMARY
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("1. NUMERICAL FEATURES SUMMARY")
+    print("-" * 50)
+    
+    # Define numerical columns (excluding text keywords - those go to text_analysis.py)
     numerical_cols = ['Severity', 'Temperature(F)', 'Humidity(%)', 
                       'Pressure(in)', 'Visibility(mi)', 'Wind_Speed(mph)', 
-                      'Precipitation(in)', 'Distance(mi)', 'Hour', 'Month', 
-                      'DayOfWeek', 'Duration_Minutes']
+                      'Precipitation(in)', 'Hour', 'Month', 'DayOfWeek', 
+                      'Duration_Minutes']
     
-    # Filter only columns that exist in dataframe
-    available_num_cols = [col for col in numerical_cols if col in df.columns]
+    # Add binary/boolean columns (0/1) - these are statistical features
+    binary_cols = ['Junction', 'Traffic_Signal', 'Crossing', 'Railway', 'Stop',
+                   'Traffic_Calming', 'Roundabout', 'Amenity', 'Station', 'No_Exit',
+                   'IsWeekend', 'Rain_Junction', 'Fog_Night', 'Freezing_Conditions',
+                   'Heavy_Rain', 'Low_Visibility', 'Rush_Hour', 'Late_Night',
+                   'Dangerous_Intersection', 'Safe_Road']
     
-    print(f"\n📊 Analyzing {len(available_num_cols)} numerical features:\n")
-    print(f"{'Feature':<20} {'Mean':<12} {'Median':<12} {'Std Dev':<12} {'Min':<10} {'Max':<10} {'Range':<12}")
-    print("-" * 95)
+    # Filter existing columns
+    available_num = [col for col in numerical_cols if col in df.columns]
+    available_binary = [col for col in binary_cols if col in df.columns]
+    all_stat_cols = available_num + available_binary
     
-    stats_summary = []
+    print(f"   Analyzing {len(all_stat_cols)} statistical features")
     
-    for col in available_num_cols:
-        mean_val = df[col].mean()
-        median_val = df[col].median()
-        std_val = df[col].std()
-        min_val = df[col].min()
-        max_val = df[col].max()
-        range_val = max_val - min_val
-        
-        print(f"{col:<20} {mean_val:<12.2f} {median_val:<12.2f} {std_val:<12.2f} {min_val:<10.2f} {max_val:<10.2f} {range_val:<12.2f}")
-        
-        stats_summary.append({
-            'Feature': col,
-            'Mean': round(mean_val, 4),
-            'Median': round(median_val, 4),
-            'Std_Dev': round(std_val, 4),
-            'Min': round(min_val, 4),
-            'Max': round(max_val, 4),
-            'Range': round(range_val, 4)
-        })
+    # Create summary DataFrame
+    summary_rows = []
+    for col in all_stat_cols:
+        if col in df.columns:
+            summary_rows.append({
+                'Feature': col,
+                'Data_Type': 'Numerical' if col in available_num else 'Binary (0/1)',
+                'Count': len(df[col].dropna()),
+                'Mean': df[col].mean(),
+                'Median': df[col].median(),
+                'Std_Dev': df[col].std(),
+                'Min': df[col].min(),
+                'Max': df[col].max()
+            })
     
-    # Save numerical statistics to CSV
-    stats_df = pd.DataFrame(stats_summary)
-    stats_output = os.path.join("outputs/tables", "numerical_statistics.csv")
-    stats_df.to_csv(stats_output, index=False)
-    print(f"\n✅ Saved: {stats_output}")
+    stats_df = pd.DataFrame(summary_rows)
     
-    # ============================================
-    # SECTION 2: QUARTILES AND PERCENTILES
-    # ============================================
-    print("\n" + "=" * 70)
-    print("SECTION 2: QUARTILES & PERCENTILES")
-    print("=" * 70)
+    # =========================================================
+    # SECTION 2: CORRELATION WITH SEVERITY
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("2. CORRELATION WITH SEVERITY")
+    print("-" * 50)
     
-    print(f"\n📊 Percentile Analysis for Key Features:\n")
-    
-    key_features = ['Severity', 'Temperature(F)', 'Humidity(%)', 'Duration_Minutes']
-    key_features = [col for col in key_features if col in df.columns]
-    
-    print(f"{'Feature':<20} {'25% (Q1)':<12} {'50% (Median)':<12} {'75% (Q3)':<12} {'IQR':<12}")
-    print("-" * 70)
-    
-    percentile_results = []
-    
-    for col in key_features:
-        q1 = df[col].quantile(0.25)
-        q2 = df[col].quantile(0.50)
-        q3 = df[col].quantile(0.75)
-        iqr = q3 - q1
-        
-        print(f"{col:<20} {q1:<12.2f} {q2:<12.2f} {q3:<12.2f} {iqr:<12.2f}")
-        
-        percentile_results.append({
-            'Feature': col,
-            'Q1_25%': round(q1, 4),
-            'Median_50%': round(q2, 4),
-            'Q3_75%': round(q3, 4),
-            'IQR': round(iqr, 4)
-        })
-    
-    # Save percentile results to CSV
-    percentile_df = pd.DataFrame(percentile_results)
-    percentile_output = os.path.join("outputs/tables", "percentile_analysis.csv")
-    percentile_df.to_csv(percentile_output, index=False)
-    print(f"\n✅ Saved: {percentile_output}")
-    
-    # ============================================
-    # SECTION 3: CORRELATION ANALYSIS
-    # ============================================
-    print("\n" + "=" * 70)
-    print("SECTION 3: CORRELATION ANALYSIS")
-    print("=" * 70)
-    
-    # Calculate correlation matrix
-    corr_matrix = df[available_num_cols].corr()
-    
-    # Save full correlation matrix to CSV
-    corr_output = os.path.join("outputs/tables", "full_correlation_matrix.csv")
-    corr_matrix.to_csv(corr_output)
-    print(f"\n✅ Saved full correlation matrix: {corr_output}")
-    
-    correlation_results = []
-    
-    # Find correlations with Severity (target variable)
-    if 'Severity' in corr_matrix.columns:
-        print(f"\n📈 Correlation with Accident Severity:\n")
-        severity_corr = corr_matrix['Severity'].sort_values(ascending=False)
-        
-        print(f"{'Feature':<25} {'Correlation with Severity':<25} {'Interpretation':<20}")
-        print("-" * 70)
-        
-        for feature, corr_value in severity_corr.items():
-            if feature != 'Severity':
-                if corr_value > 0.5:
-                    interpretation = "Strong Positive"
-                elif corr_value > 0.3:
-                    interpretation = "Moderate Positive"
-                elif corr_value > 0.1:
-                    interpretation = "Weak Positive"
-                elif corr_value > -0.1:
-                    interpretation = "No Correlation"
-                elif corr_value > -0.3:
-                    interpretation = "Weak Negative"
-                elif corr_value > -0.5:
-                    interpretation = "Moderate Negative"
+    correlation_rows = []
+    if 'Severity' in df.columns:
+        for col in all_stat_cols:
+            if col != 'Severity' and col in df.columns:
+                corr_val = df[col].corr(df['Severity'])
+                
+                # Interpret correlation strength
+                if abs(corr_val) > 0.5:
+                    strength = "Strong"
+                elif abs(corr_val) > 0.3:
+                    strength = "Moderate"
+                elif abs(corr_val) > 0.1:
+                    strength = "Weak"
                 else:
-                    interpretation = "Strong Negative"
+                    strength = "Very Weak / None"
                 
-                print(f"{feature:<25} {corr_value:<25.4f} {interpretation:<20}")
+                direction = "Positive" if corr_val > 0 else "Negative"
                 
-                correlation_results.append({
-                    'Feature': feature,
-                    'Correlation_with_Severity': round(corr_value, 4),
-                    'Interpretation': interpretation
+                correlation_rows.append({
+                    'Feature': col,
+                    'Correlation': corr_val,
+                    'Strength': strength,
+                    'Direction': direction
                 })
     
-    # Save correlation results to CSV
-    correlation_df = pd.DataFrame(correlation_results)
-    correlation_summary_output = os.path.join("outputs/tables", "severity_correlations.csv")
-    correlation_df.to_csv(correlation_summary_output, index=False)
-    print(f"\n✅ Saved: {correlation_summary_output}")
+    corr_df = pd.DataFrame(correlation_rows)
+    corr_df = corr_df.sort_values('Correlation', key=abs, ascending=False)
     
-    # ============================================
-    # SECTION 4: CATEGORICAL FEATURES ANALYSIS
-    # ============================================
-    print("\n" + "=" * 70)
-    print("SECTION 4: CATEGORICAL FEATURES ANALYSIS")
-    print("=" * 70)
+    # Print top correlations
+    print("\n   Top 10 features correlated with severity:")
+    for i, row in corr_df.head(10).iterrows():
+        print(f"      {row['Feature']}: {row['Correlation']:.4f} ({row['Strength']} {row['Direction']})")
     
-    # 4.1 Severity distribution
-    severity_distribution_results = []
+    # =========================================================
+    # SECTION 3: SEVERITY DISTRIBUTION
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("3. SEVERITY DISTRIBUTION")
+    print("-" * 50)
     
-    if 'Severity' in df.columns:
-        print(f"\n📊 Accident Severity Distribution:")
-        print(f"{'Severity':<12} {'Count':<12} {'Percentage':<12} {'Cumulative':<12}")
-        print("-" * 50)
-        
-        severity_counts = df['Severity'].value_counts().sort_index()
-        total = len(df)
-        cumulative = 0
-        
-        for severity, count in severity_counts.items():
-            pct = (count / total) * 100
-            cumulative += pct
-            print(f"Severity {severity:<5} {count:<12,} {pct:<11.2f}% {cumulative:<11.2f}%")
-            
-            severity_distribution_results.append({
-                'Severity': severity,
-                'Count': int(count),
-                'Percentage': round(pct, 2),
-                'Cumulative_Percentage': round(cumulative, 2)
-            })
+    severity_counts = df['Severity'].value_counts().sort_index()
+    total = len(df)
     
-    # Save severity distribution to CSV
-    severity_dist_df = pd.DataFrame(severity_distribution_results)
-    severity_output = os.path.join("outputs/tables", "severity_distribution.csv")
-    severity_dist_df.to_csv(severity_output, index=False)
-    print(f"\n✅ Saved: {severity_output}")
+    severity_rows = []
+    for severity in [1, 2, 3, 4]:
+        count = severity_counts.get(severity, 0)
+        severity_rows.append({
+            'Severity_Level': severity,
+            'Description': {1: 'Minor', 2: 'Moderate', 3: 'Serious', 4: 'Severe'}[severity],
+            'Count': count,
+            'Percentage': (count / total) * 100
+        })
     
-    # 4.2 State distribution
+    severity_df = pd.DataFrame(severity_rows)
+    
+    # =========================================================
+    # SECTION 4: CATEGORICAL DISTRIBUTIONS
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("4. CATEGORICAL DISTRIBUTIONS")
+    print("-" * 50)
+    
+    all_categorical_tables = {}
+    
+    # 4a: State Distribution
     if 'State' in df.columns:
-        print(f"\n📊 State-wise Accident Distribution:")
         state_counts = df['State'].value_counts()
-        
-        state_results = []
+        state_rows = []
         for state, count in state_counts.items():
-            pct = (count / len(df)) * 100
-            print(f"   {state}: {count:,} accidents ({pct:.1f}%)")
-            state_results.append({
+            state_rows.append({
                 'State': state,
-                'Accident_Count': int(count),
-                'Percentage': round(pct, 2)
+                'Accidents': count,
+                'Percentage': (count / total) * 100,
+                'Avg_Severity': df[df['State'] == state]['Severity'].mean()
             })
-        
-        state_df = pd.DataFrame(state_results)
-        state_output = os.path.join("outputs/tables", "state_distribution.csv")
-        state_df.to_csv(state_output, index=False)
-        print(f"\n✅ Saved: {state_output}")
+        all_categorical_tables['State Distribution'] = pd.DataFrame(state_rows)
     
-    # 4.3 Time of day distribution
+    # 4b: Time of Day Distribution
     if 'TimeOfDay' in df.columns:
-        print(f"\n📊 Time of Day Distribution:")
         time_order = ['Late Night', 'Morning', 'Afternoon', 'Evening', 'Night']
         time_counts = df['TimeOfDay'].value_counts()
-        
-        time_results = []
+        time_rows = []
         for time in time_order:
             if time in time_counts:
                 count = time_counts[time]
-                pct = (count / len(df)) * 100
-                print(f"   {time}: {count:,} accidents ({pct:.1f}%)")
-                time_results.append({
-                    'TimeOfDay': time,
-                    'Accident_Count': int(count),
-                    'Percentage': round(pct, 2)
+                time_rows.append({
+                    'Time_Period': time,
+                    'Accidents': count,
+                    'Percentage': (count / total) * 100,
+                    'Avg_Severity': df[df['TimeOfDay'] == time]['Severity'].mean()
                 })
-        
-        time_df = pd.DataFrame(time_results)
-        time_output = os.path.join("outputs/tables", "time_of_day_distribution.csv")
-        time_df.to_csv(time_output, index=False)
-        print(f"\n✅ Saved: {time_output}")
+        all_categorical_tables['Time of Day Distribution'] = pd.DataFrame(time_rows)
     
-    # 4.4 Day vs Night distribution
+    # 4c: Day vs Night
     if 'Sunrise_Sunset' in df.columns:
-        print(f"\n📊 Day vs Night Accidents:")
-        day_night = df['Sunrise_Sunset'].value_counts()
-        
-        day_night_results = []
-        for category, count in day_night.items():
-            pct = (count / len(df)) * 100
-            print(f"   {category}: {count:,} accidents ({pct:.1f}%)")
-            day_night_results.append({
-                'Period': category,
-                'Accident_Count': int(count),
-                'Percentage': round(pct, 2)
+        dn_counts = df['Sunrise_Sunset'].value_counts()
+        dn_rows = []
+        for period, count in dn_counts.items():
+            dn_rows.append({
+                'Period': period,
+                'Accidents': count,
+                'Percentage': (count / total) * 100,
+                'Avg_Severity': df[df['Sunrise_Sunset'] == period]['Severity'].mean()
             })
-        
-        day_night_df = pd.DataFrame(day_night_results)
-        day_night_output = os.path.join("outputs/tables", "day_night_distribution.csv")
-        day_night_df.to_csv(day_night_output, index=False)
-        print(f"\n✅ Saved: {day_night_output}")
+        all_categorical_tables['Day vs Night'] = pd.DataFrame(dn_rows)
     
-    # 4.5 Weekend vs Weekday
+    # 4d: Weekend vs Weekday
     if 'IsWeekend' in df.columns:
-        print(f"\n📊 Weekend vs Weekday Accidents:")
         weekend_count = df[df['IsWeekend'] == 1].shape[0]
         weekday_count = df[df['IsWeekend'] == 0].shape[0]
-        weekend_pct = (weekend_count / len(df)) * 100
-        weekday_pct = (weekday_count / len(df)) * 100
-        
-        print(f"   Weekend: {weekend_count:,} accidents ({weekend_pct:.1f}%)")
-        print(f"   Weekday: {weekday_count:,} accidents ({weekday_pct:.1f}%)")
-        
-        weekend_results = [
-            {'Day_Type': 'Weekend', 'Accident_Count': int(weekend_count), 'Percentage': round(weekend_pct, 2)},
-            {'Day_Type': 'Weekday', 'Accident_Count': int(weekday_count), 'Percentage': round(weekday_pct, 2)}
+        wd_rows = [
+            {'Day_Type': 'Weekday', 'Accidents': weekday_count, 'Percentage': (weekday_count / total) * 100},
+            {'Day_Type': 'Weekend', 'Accidents': weekend_count, 'Percentage': (weekend_count / total) * 100}
         ]
-        
-        weekend_df = pd.DataFrame(weekend_results)
-        weekend_output = os.path.join("outputs/tables", "weekend_weekday_distribution.csv")
-        weekend_df.to_csv(weekend_output, index=False)
-        print(f"\n✅ Saved: {weekend_output}")
+        all_categorical_tables['Weekend vs Weekday'] = pd.DataFrame(wd_rows)
     
-    # 4.6 Weather conditions (top 10)
+    # 4e: Top 10 Weather Conditions
     if 'Weather_Condition' in df.columns:
-        print(f"\n📊 Top 10 Weather Conditions:")
         weather_counts = df['Weather_Condition'].value_counts().head(10)
-        
-        weather_results = []
+        weather_rows = []
         for weather, count in weather_counts.items():
-            pct = (count / len(df)) * 100
-            print(f"   {weather}: {count:,} accidents ({pct:.1f}%)")
-            weather_results.append({
+            weather_rows.append({
                 'Weather_Condition': weather,
-                'Accident_Count': int(count),
-                'Percentage': round(pct, 2)
+                'Accidents': count,
+                'Percentage': (count / total) * 100,
+                'Avg_Severity': df[df['Weather_Condition'] == weather]['Severity'].mean()
             })
-        
-        weather_df = pd.DataFrame(weather_results)
-        weather_output = os.path.join("outputs/tables", "top_10_weather_conditions.csv")
-        weather_df.to_csv(weather_output, index=False)
-        print(f"\n✅ Saved: {weather_output}")
+        all_categorical_tables['Top 10 Weather Conditions'] = pd.DataFrame(weather_rows)
     
-    # ============================================
+    # =========================================================
     # SECTION 5: GA vs CT COMPARISON
-    # ============================================
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("5. GA vs CT COMPARISON")
+    print("-" * 50)
+    
+    ga_df = df[df['State'] == 'GA']
+    ct_df = df[df['State'] == 'CT']
+    
+    comparison_rows = [
+        {'Metric': 'Total Accidents', 'Georgia': len(ga_df), 'Connecticut': len(ct_df), 'Difference': len(ga_df) - len(ct_df)},
+        {'Metric': 'Average Severity', 'Georgia': ga_df['Severity'].mean(), 'Connecticut': ct_df['Severity'].mean(), 'Difference': ga_df['Severity'].mean() - ct_df['Severity'].mean()},
+    ]
+    
+    if 'Temperature(F)' in df.columns:
+        comparison_rows.append({'Metric': 'Avg Temperature (°F)', 'Georgia': ga_df['Temperature(F)'].mean(), 'Connecticut': ct_df['Temperature(F)'].mean(), 'Difference': ga_df['Temperature(F)'].mean() - ct_df['Temperature(F)'].mean()})
+    
+    if 'Humidity(%)' in df.columns:
+        comparison_rows.append({'Metric': 'Avg Humidity (%)', 'Georgia': ga_df['Humidity(%)'].mean(), 'Connecticut': ct_df['Humidity(%)'].mean(), 'Difference': ga_df['Humidity(%)'].mean() - ct_df['Humidity(%)'].mean()})
+    
+    if 'Duration_Minutes' in df.columns:
+        comparison_rows.append({'Metric': 'Avg Duration (minutes)', 'Georgia': ga_df['Duration_Minutes'].mean(), 'Connecticut': ct_df['Duration_Minutes'].mean(), 'Difference': ga_df['Duration_Minutes'].mean() - ct_df['Duration_Minutes'].mean()})
+    
+    comparison_df = pd.DataFrame(comparison_rows)
+    
+    # =========================================================
+    # SECTION 6: SAVE ALL CSV FILES
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("6. SAVING CSV FILES")
+    print("-" * 50)
+    
+    stats_df.to_csv("outputs/statistical_analysis/tables/01_numerical_statistics.csv", index=False)
+    corr_df.to_csv("outputs/statistical_analysis/tables/02_correlations.csv", index=False)
+    severity_df.to_csv("outputs/statistical_analysis/tables/03_severity_distribution.csv", index=False)
+    comparison_df.to_csv("outputs/statistical_analysis/tables/04_ga_vs_ct.csv", index=False)
+    
+    for name, table in all_categorical_tables.items():
+        safe_name = name.lower().replace(' ', '_')
+        table.to_csv(f"outputs/statistical_analysis/tables/05_{safe_name}.csv", index=False)
+    
+    print("   ✅ Saved 10+ CSV files to outputs/statistical_analysis/tables/")
+    
+    # =========================================================
+    # SECTION 7: CREATE EXCEL FILE (All tables in one workbook)
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("7. CREATING EXCEL FILE")
+    print("-" * 50)
+    
+    excel_path = "outputs/statistical_analysis/reports/statistical_analysis.xlsx"
+    
+    if HAS_OPENPYXL:
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            # Summary sheet
+            stats_df.to_excel(writer, sheet_name='Numerical_Stats', index=False)
+            corr_df.to_excel(writer, sheet_name='Correlations', index=False)
+            severity_df.to_excel(writer, sheet_name='Severity_Distribution', index=False)
+            comparison_df.to_excel(writer, sheet_name='GA_vs_CT', index=False)
+            
+            # Categorical tables
+            for name, table in all_categorical_tables.items():
+                sheet_name = name.replace(' ', '_')[:31]  # Excel sheet name max 31 chars
+                table.to_excel(writer, sheet_name=sheet_name, index=False)
+            
+            # Add info sheet
+            info_df = pd.DataFrame({
+                'Information': ['Analysis Date', 'Total Accidents', 'Date Range'],
+                'Value': [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), len(df), 
+                          f"{df['Start_Time'].min().date()} to {df['Start_Time'].max().date()}" if 'Start_Time' in df.columns else 'N/A']
+            })
+            info_df.to_excel(writer, sheet_name='Info', index=False)
+        
+        print(f"   ✅ Excel file saved: {excel_path}")
+    else:
+        print("   ⚠️ openpyxl not installed. Skipping Excel export.")
+    
+    # =========================================================
+    # SECTION 8: CREATE WORD REPORT
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("8. CREATING WORD REPORT")
+    print("-" * 50)
+    
+    word_path = "outputs/statistical_analysis/reports/statistical_analysis.docx"
+    
+    if HAS_PYTHON_DOCX:
+        doc = Document()
+        
+        # Title
+        title = doc.add_heading('US Accidents Statistical Analysis Report', 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Info
+        doc.add_paragraph(f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        doc.add_paragraph(f"Total Accidents Analyzed: {len(df):,}")
+        if 'Start_Time' in df.columns:
+            doc.add_paragraph(f"Date Range: {df['Start_Time'].min().date()} to {df['Start_Time'].max().date()}")
+        doc.add_paragraph(f"States: Georgia (GA) and Connecticut (CT)")
+        doc.add_paragraph()
+        
+        # 1. Severity Distribution
+        doc.add_heading('1. Accident Severity Distribution', level=1)
+        table = doc.add_table(rows=1, cols=3)
+        table.style = 'Table Grid'
+        hdr = table.rows[0].cells
+        hdr[0].text = 'Severity Level'
+        hdr[1].text = 'Description'
+        hdr[2].text = 'Count'
+        for _, row in severity_df.iterrows():
+            cells = table.add_row().cells
+            cells[0].text = str(int(row['Severity_Level']))
+            cells[1].text = row['Description']
+            cells[2].text = f"{int(row['Count']):,}"
+        doc.add_paragraph()
+        
+        # 2. Key Findings from Correlations
+        doc.add_heading('2. Key Factors Correlated with Severity', level=1)
+        doc.add_paragraph("The following features show the strongest correlation with accident severity:")
+        
+        table = doc.add_table(rows=1, cols=3)
+        table.style = 'Table Grid'
+        hdr = table.rows[0].cells
+        hdr[0].text = 'Feature'
+        hdr[1].text = 'Correlation'
+        hdr[2].text = 'Strength'
+        for _, row in corr_df.head(10).iterrows():
+            cells = table.add_row().cells
+            cells[0].text = row['Feature']
+            cells[1].text = f"{row['Correlation']:.4f}"
+            cells[2].text = row['Strength']
+        doc.add_paragraph()
+        
+        # 3. GA vs CT Comparison
+        doc.add_heading('3. Georgia vs Connecticut Comparison', level=1)
+        table = doc.add_table(rows=1, cols=4)
+        table.style = 'Table Grid'
+        hdr = table.rows[0].cells
+        hdr[0].text = 'Metric'
+        hdr[1].text = 'Georgia'
+        hdr[2].text = 'Connecticut'
+        hdr[3].text = 'Difference'
+        for _, row in comparison_df.iterrows():
+            cells = table.add_row().cells
+            cells[0].text = row['Metric']
+            cells[1].text = f"{row['Georgia']:.1f}" if isinstance(row['Georgia'], float) else f"{row['Georgia']:,}"
+            cells[2].text = f"{row['Connecticut']:.1f}" if isinstance(row['Connecticut'], float) else f"{row['Connecticut']:,}"
+            cells[3].text = f"{row['Difference']:.1f}" if isinstance(row['Difference'], float) else f"{row['Difference']:,}"
+        doc.add_paragraph()
+        
+        # 4. Time Patterns
+        if 'Time of Day Distribution' in all_categorical_tables:
+            doc.add_heading('4. Accident Patterns by Time of Day', level=1)
+            time_table = all_categorical_tables['Time of Day Distribution']
+            table = doc.add_table(rows=1, cols=4)
+            table.style = 'Table Grid'
+            hdr = table.rows[0].cells
+            hdr[0].text = 'Time Period'
+            hdr[1].text = 'Accidents'
+            hdr[2].text = 'Percentage'
+            hdr[3].text = 'Avg Severity'
+            for _, row in time_table.iterrows():
+                cells = table.add_row().cells
+                cells[0].text = row['Time_Period']
+                cells[1].text = f"{int(row['Accidents']):,}"
+                cells[2].text = f"{row['Percentage']:.1f}%"
+                cells[3].text = f"{row['Avg_Severity']:.2f}"
+        
+        # Save Word document
+        doc.save(word_path)
+        print(f"   ✅ Word report saved: {word_path}")
+    else:
+        print("   ⚠️ python-docx not installed. Skipping Word export.")
+    
+    # =========================================================
+    # FINAL SUMMARY
+    # =========================================================
     print("\n" + "=" * 70)
-    print("SECTION 5: GEORGIA vs CONNECTICUT COMPARISON")
+    print("📊 STATISTICAL ANALYSIS - SUMMARY")
     print("=" * 70)
     
-    ga_ct_results = []
-    
-    if 'State' in df.columns:
-        for state in ['GA', 'CT']:
-            state_df = df[df['State'] == state]
-            print(f"\n📊 {state} Statistics:")
-            print(f"   Total Accidents: {len(state_df):,}")
-            print(f"   Average Severity: {state_df['Severity'].mean():.2f}")
-            
-            result = {
-                'State': state,
-                'Total_Accidents': len(state_df),
-                'Average_Severity': round(state_df['Severity'].mean(), 4),
-                'Most_Common_Severity': int(state_df['Severity'].mode()[0])
-            }
-            
-            if 'Temperature(F)' in df.columns:
-                temp = state_df['Temperature(F)'].mean()
-                print(f"   Average Temperature: {temp:.1f}°F")
-                result['Average_Temperature_F'] = round(temp, 2)
-            
-            if 'Humidity(%)' in df.columns:
-                humidity = state_df['Humidity(%)'].mean()
-                print(f"   Average Humidity: {humidity:.1f}%")
-                result['Average_Humidity_Pct'] = round(humidity, 2)
-            
-            if 'Precipitation(in)' in df.columns:
-                precip = state_df['Precipitation(in)'].mean()
-                print(f"   Average Precipitation: {precip:.2f} inches")
-                result['Average_Precipitation_in'] = round(precip, 4)
-            
-            if 'Duration_Minutes' in df.columns:
-                duration = state_df['Duration_Minutes'].mean()
-                print(f"   Average Duration: {duration:.1f} minutes")
-                result['Average_Duration_Minutes'] = round(duration, 2)
-            
-            if 'TimeOfDay' in df.columns:
-                top_time = state_df['TimeOfDay'].mode()[0]
-                print(f"   Most Common Time: {top_time}")
-                result['Most_Common_TimeOfDay'] = top_time
-            
-            ga_ct_results.append(result)
-    
-    # Save GA vs CT comparison to CSV
-    ga_ct_df = pd.DataFrame(ga_ct_results)
-    ga_ct_output = os.path.join("outputs/tables", "ga_vs_ct_comparison.csv")
-    ga_ct_df.to_csv(ga_ct_output, index=False)
-    print(f"\n✅ Saved: {ga_ct_output}")
-    
-    # ============================================
-    # SECTION 6: SAVE CORRELATION MATRIX (again for datasets folder)
-    # ============================================
-    print("\n" + "=" * 70)
-    print("SECTION 6: SAVING ADDITIONAL REPORTS")
-    print("=" * 70)
-    
-    # Also save to datasets folder for backward compatibility
-    stats_output_legacy = os.path.join("datasets", "statistical_summary.csv")
-    stats_df.to_csv(stats_output_legacy, index=False)
-    print(f"✅ Statistical summary saved to: {stats_output_legacy}")
-    
-    corr_output_legacy = os.path.join("datasets", "correlation_matrix.csv")
-    corr_matrix.to_csv(corr_output_legacy)
-    print(f"✅ Correlation matrix saved to: {corr_output_legacy}")
-    
-    # Save summary report as text file
-    with open("outputs/reports/statistical_analysis_summary.txt", "w") as f:
-        f.write("=" * 70 + "\n")
-        f.write("STATISTICAL ANALYSIS SUMMARY\n")
-        f.write("=" * 70 + "\n\n")
-        f.write(f"Total Accidents Analyzed: {len(df):,}\n")
-        f.write(f"States: GA ({len(df[df['State']=='GA']):,}), CT ({len(df[df['State']=='CT']):,})\n")
-        f.write(f"Average Severity: {df['Severity'].mean():.2f} (Range: 1-4)\n")
-        f.write(f"Most Common Severity: {df['Severity'].mode()[0]}\n\n")
-        f.write("=" * 70 + "\n")
-        f.write("CORRELATION WITH SEVERITY (Top 5)\n")
-        f.write("=" * 70 + "\n")
-        for corr in correlation_results[:5]:
-            f.write(f"{corr['Feature']}: {corr['Correlation_with_Severity']} ({corr['Interpretation']})\n")
-    
-    print(f"✅ Saved: outputs/reports/statistical_analysis_summary.txt")
-    
-    # ============================================
-    # SECTION 7: SUMMARY
-    # ============================================
-    print("\n" + "=" * 70)
-    print("📊 STATISTICAL ANALYSIS SUMMARY")
-    print("=" * 70)
-    
+    # Key insights
     print(f"""
-✅ Analysis Complete!
+✅ ANALYSIS COMPLETE!
 
-Key Findings:
---------------
-• Total Accidents Analyzed: {len(df):,}
-• States: GA ({len(df[df['State']=='GA']):,}), CT ({len(df[df['State']=='CT']):,})
-• Average Severity: {df['Severity'].mean():.2f} (Range: 1-4)
+KEY INSIGHTS:
+------------
+• Total Accidents: {len(df):,}
+• Average Severity: {df['Severity'].mean():.2f} (1=Minor, 4=Severe)
 • Most Common Severity: {df['Severity'].mode()[0]}
 
-📁 ALL CSV FILES CREATED:
-------------------------
-outputs/tables/
-   ├── numerical_statistics.csv          (Mean, median, std for all numerical features)
-   ├── percentile_analysis.csv           (Q1, Median, Q3, IQR for key features)
-   ├── full_correlation_matrix.csv       (Complete correlation matrix)
-   ├── severity_correlations.csv         (Correlations with severity only)
-   ├── severity_distribution.csv         (Count and % for each severity level)
-   ├── state_distribution.csv            (GA vs CT accident counts)
-   ├── time_of_day_distribution.csv      (Accidents by time period)
-   ├── day_night_distribution.csv        (Day vs Night accidents)
-   ├── weekend_weekday_distribution.csv  (Weekend vs Weekday)
-   ├── top_10_weather_conditions.csv     (Most common weather conditions)
-   └── ga_vs_ct_comparison.csv           (Comprehensive state comparison)
+TOP CORRELATIONS WITH SEVERITY:
+""")
+    for _, row in corr_df.head(5).iterrows():
+        print(f"   • {row['Feature']}: {row['Correlation']:.4f} ({row['Strength']})")
 
-outputs/reports/
-   └── statistical_analysis_summary.txt  (Plain text summary)
+    print(f"""
+OUTPUT FILES:
+------------
+📁 CSV Files: outputs/statistical_analysis/tables/
+   ├── 01_numerical_statistics.csv
+   ├── 02_correlations.csv
+   ├── 03_severity_distribution.csv
+   ├── 04_ga_vs_ct.csv
+   └── 05_*.csv (categorical tables)
 
-datasets/
-   ├── statistical_summary.csv           (Legacy - numerical statistics)
-   └── correlation_matrix.csv            (Legacy - correlation matrix)
+📊 Excel File: outputs/statistical_analysis/reports/statistical_analysis.xlsx
+   (All tables in one workbook)
+
+📄 Word Report: outputs/statistical_analysis/reports/statistical_analysis.docx
+   (Professional report with formatted tables)
 """)
     
     print("=" * 70)
     print("✨ STATISTICAL ANALYSIS COMPLETE! ✨")
     print("=" * 70)
     
-    return df, stats_df, corr_matrix
+    return df
 
-# Auto-run when imported
 if __name__ == "__main__" or __name__ == "statistical_analysis":
     run_statistical_analysis()
