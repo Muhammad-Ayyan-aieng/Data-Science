@@ -15,8 +15,9 @@ def filter_data():
     print("=" * 60)
     
     # Define file paths using datasets folder
-    input_file = os.path.join("datasets", "US_Accidents_March23.csv")
+    input_file = os.path.join("datasets", "US_Accidents_March23.csv")    
     output_file = os.path.join("datasets", "filtered_data.csv")
+    os.makedirs("datasets", exist_ok=True)
     
     # Check if already filtered
     if os.path.exists(output_file):
@@ -54,7 +55,7 @@ def filter_data():
         
         # Show progress every 10 chunks
         if (i + 1) % 10 == 0:
-            print(f"Chunk {i+1}: Processed {total_rows:,} rows | Found {total_filtered:,} GA/CT rows | {((total_rows/7700000)*100):.1f}% complete")
+            print(f"Chunk {i+1}: Processed {total_rows:,} rows | Found {total_filtered:,} GA/CT rows | {((total_rows/7728394)*100):.1f}% complete")
     
     print("\n" + "=" * 60)
     print("📊 FILTERING COMPLETE!")
