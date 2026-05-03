@@ -1,0 +1,9 @@
+Keyword,Accident_Count,Percentage,Avg_Severity,Severity1_Pct,Severity2_Pct,Severity3_Pct,Severity4_Pct
+blocked,87291,36.34,2.6452,0.26,36.87,60.97,1.9
+multi-vehicle,1022,0.43,2.7378,0.2,29.65,66.34,3.82
+slow traffic,16799,6.99,2.1318,0.01,86.88,13.04,0.07
+queueing,2562,1.07,2.8123,0.0,21.04,76.7,2.26
+shoulder,23464,9.77,2.6819,0.71,33.14,63.39,2.75
+jackknife,122,0.05,3.0902,0.0,9.02,72.95,18.03
+rollover,2,0.0,2.5,0.0,50.0,50.0,0.0
+serious,395,0.16,2.3848,0.0,64.05,33.42,2.53

@@ -1,0 +1,5 @@
+Feature,Q1_25%,Median_50%,Q3_75%,IQR
+Severity,2.0,2.0,3.0,1.0
+Temperature(F),49.0,63.0,74.0,25.0
+Humidity(%),51.0,70.0,88.0,37.0
+Duration_Minutes,30.0,59.8,125.0,95.0

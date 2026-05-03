@@ -1,0 +1,9 @@
+Category,Severity,Count,Percentage
+WITH blocked,1,224,0.26
+WITH blocked,2,32185,36.87
+WITH blocked,3,53224,60.97
+WITH blocked,4,1658,1.9
+WITHOUT blocked,1,855,0.56
+WITHOUT blocked,2,112403,73.5
+WITHOUT blocked,3,24389,15.95
+WITHOUT blocked,4,15287,10.0

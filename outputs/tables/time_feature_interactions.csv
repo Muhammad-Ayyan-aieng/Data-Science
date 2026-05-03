@@ -1,0 +1,21 @@
+Time_Period,Feature,Accident_Count,Avg_Severity
+Morning,Junction,7101,2.3942
+Afternoon,Junction,6453,2.4028
+Evening,Junction,3685,2.4475
+Night,Junction,2706,2.4545
+Late Night,Junction,2883,2.5373
+Morning,Traffic_Signal,8732,2.162
+Afternoon,Traffic_Signal,5024,2.2635
+Evening,Traffic_Signal,3147,2.2307
+Night,Traffic_Signal,1265,2.4664
+Late Night,Traffic_Signal,1134,2.3951
+Morning,Crossing,5263,2.1435
+Afternoon,Crossing,3274,2.2324
+Evening,Crossing,1883,2.2539
+Night,Crossing,830,2.4807
+Late Night,Crossing,704,2.5142
+Morning,Railway,463,2.3002
+Afternoon,Railway,279,2.5054
+Evening,Railway,194,2.5
+Night,Railway,112,2.6071
+Late Night,Railway,110,2.5818

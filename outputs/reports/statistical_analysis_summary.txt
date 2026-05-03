@@ -1,0 +1,17 @@
+======================================================================
+STATISTICAL ANALYSIS SUMMARY
+======================================================================
+
+Total Accidents Analyzed: 240,225
+States: GA (169,221), CT (71,004)
+Average Severity: 2.46 (Range: 1-4)
+Most Common Severity: 2
+
+======================================================================
+CORRELATION WITH SEVERITY (Top 5)
+======================================================================
+Temperature(F): 0.0687 (No Correlation)
+Pressure(in): 0.0602 (No Correlation)
+Hour: 0.0498 (No Correlation)
+Wind_Speed(mph): 0.029 (No Correlation)
+DayOfWeek: 0.0264 (No Correlation)

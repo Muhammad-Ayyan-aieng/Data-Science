@@ -1,0 +1,12 @@
+Feature,Correlation_with_Severity,Interpretation
+Temperature(F),0.0687,No Correlation
+Pressure(in),0.0602,No Correlation
+Hour,0.0498,No Correlation
+Wind_Speed(mph),0.029,No Correlation
+DayOfWeek,0.0264,No Correlation
+Visibility(mi),0.0123,No Correlation
+Duration_Minutes,0.0116,No Correlation
+Precipitation(in),0.0024,No Correlation
+Humidity(%),-0.0068,No Correlation
+Month,-0.0275,No Correlation
+Distance(mi),-0.0673,No Correlation

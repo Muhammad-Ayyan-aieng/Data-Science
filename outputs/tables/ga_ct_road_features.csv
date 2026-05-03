@@ -1,0 +1,14 @@
+Feature,GA_Present_Pct,CT_Present_Pct,Difference_GA_CT,GA_Severity_When_Present,CT_Severity_When_Present,Severity_Difference
+Amenity,0.39,0.47,-0.08,2.1316,2.2349,-0.1033
+Bump,0.0,0.0,0.0,,,
+Crossing,5.7,3.25,2.46,2.1748,2.4633,-0.2885
+Give_Way,0.29,0.26,0.02,2.5175,2.2819,0.2356
+Junction,8.48,11.93,-3.45,2.4967,2.3181,0.1786
+No_Exit,0.04,0.1,-0.06,2.0896,2.0845,0.005
+Railway,0.6,0.21,0.38,2.4702,2.2333,0.2369
+Roundabout,0.0,0.0,0.0,,,
+Station,0.21,0.08,0.13,2.1073,2.3455,-0.2381
+Stop,0.68,1.19,-0.51,2.5694,2.5699,-0.0005
+Traffic_Calming,0.08,0.0,0.08,2.037,,
+Traffic_Signal,9.97,3.43,6.54,2.1994,2.4678,-0.2683
+Turning_Loop,0.0,0.0,0.0,,,
