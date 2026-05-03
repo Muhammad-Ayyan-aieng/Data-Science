@@ -153,34 +153,3 @@ This project is for educational purposes only. The original dataset is licensed 
 
 ⭐ Star this repository if you found it useful!
 
-text
-
----
-
-## ✅ WHAT THIS README INCLUDES
-
-| Section | Content |
-|---------|---------|
-| Project Overview | What the project does |
-| Dataset Source | Kaggle link + citation |
-| Project Structure | Folder and file layout |
-| How to Run | Step-by-step setup and execution |
-| Processing Pipeline | What each file does |
-| Output Structure | Where to find results |
-| Tools Used | All libraries with versions |
-| Citation | Academic credit |
-| Author Info | Your details |
-
----
-
-## ❌ WHAT IS NOT INCLUDED (No Results)
-
-- No severity distribution numbers
-- No correlation values
-- No keyword severity scores
-- No city rankings
-- No GA vs CT comparison numbers
-
-**All results are in the `outputs/` folder.**
-
----
