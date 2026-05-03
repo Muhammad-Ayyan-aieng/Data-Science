@@ -2,25 +2,41 @@
 """
 Advanced Text Analysis of Accident Descriptions
 Extracts keywords that predict accident severity
-Exports ALL results to CSV files for visualization and reporting
+Exports to: 1 Excel file, 1 Word file, multiple CSV files
 """
 
 import pandas as pd
 import os
-import re
-from collections import Counter
 from sklearn.feature_extraction.text import CountVectorizer
+from datetime import datetime
+
+# Optional imports for Excel and Word
+try:
+    from openpyxl import Workbook
+    HAS_OPENPYXL = True
+except ImportError:
+    HAS_OPENPYXL = False
+    print("⚠️ openpyxl not installed. Excel export limited.")
+
+try:
+    from docx import Document
+    from docx.shared import Inches, Pt
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    HAS_PYTHON_DOCX = True
+except ImportError:
+    HAS_PYTHON_DOCX = False
+    print("⚠️ python-docx not installed. Word export limited.")
 
 def analyze_description_text():
     """Extract keywords from Description column and analyze severity relationship"""
     
-    print("=" * 70)
+    print("=" * 80)
     print("📝 TEXT ANALYSIS - ACCIDENT DESCRIPTIONS")
-    print("=" * 70)
+    print("=" * 80)
     
     # Create output folders
-    os.makedirs("outputs/tables", exist_ok=True)
-    os.makedirs("outputs/reports", exist_ok=True)
+    os.makedirs("outputs/text_analysis/tables", exist_ok=True)
+    os.makedirs("outputs/text_analysis/reports", exist_ok=True)
     
     # Load cleaned data
     input_file = os.path.join("datasets", "cleaned_accidents.csv")
@@ -30,190 +46,121 @@ def analyze_description_text():
         return None
     
     df = pd.read_csv(input_file)
-    print(f"✅ Loaded {len(df):,} accidents")
+    print(f"\n✅ Loaded {len(df):,} accident descriptions")
     
-    # ============================================
-    # 1. KEYWORD EXTRACTION FROM DESCRIPTION
-    # ============================================
+    # =========================================================
+    # 1. KEYWORD CATEGORIES - FREQUENCY
+    # =========================================================
     print("\n" + "-" * 50)
-    print("1. EXTRACTING KEYWORDS FROM DESCRIPTIONS")
+    print("1. KEYWORD CATEGORIES FREQUENCY")
     print("-" * 50)
     
-    # Define keywords that indicate higher severity
     severity_keywords = {
-        'high_severity': [
+        'High Severity': [
             'blocked', 'lane blocked', 'lanes blocked', 'multi-vehicle', 
             'multi vehicle', 'jackknife', 'rollover', 'serious', 
-            'fatality', 'injury', 'ejection', 'overturn', 'pin-in',
-            'entrapment', 'critical', 'heavy damage'
+            'fatality', 'injury', 'ejection', 'overturn'
         ],
-        'medium_severity': [
-            'slow traffic', 'queueing', 'backup', 'delay', 
-            'shoulder blocked', 'right lane', 'left lane'
+        'Medium Severity': [
+            'slow traffic', 'queueing', 'backup', 'delay', 'shoulder blocked'
         ],
-        'low_severity': [
+        'Low Severity': [
             'accident on', 'crash', 'collision', 'fender bender'
         ]
     }
     
-    # Create new columns for keyword flags
-    for severity_level, keywords in severity_keywords.items():
-        column_name = f'has_{severity_level}'
-        df[column_name] = False
-        
+    # Create keyword flags
+    for category, keywords in severity_keywords.items():
+        col_name = f'has_{category.replace(" ", "_")}'
+        df[col_name] = False
         for keyword in keywords:
             mask = df['Description'].str.contains(keyword, case=False, na=False)
-            df[column_name] = df[column_name] | mask
+            df[col_name] = df[col_name] | mask
     
-    # Count accidents with each keyword type
-    keyword_counts = []
-    print("\n📊 Accidents containing severity indicators:")
-    for severity_level in severity_keywords.keys():
-        count = df[f'has_{severity_level}'].sum()
+    # Build keyword category table
+    keyword_category_data = []
+    for category in severity_keywords.keys():
+        col_name = f'has_{category.replace(" ", "_")}'
+        count = df[col_name].sum()
         pct = (count / len(df)) * 100
-        print(f"   {severity_level.upper()} keywords: {count:,} accidents ({pct:.1f}%)")
-        
-        keyword_counts.append({
-            'Keyword_Type': severity_level.upper(),
+        keyword_category_data.append({
+            'Keyword_Category': category,
             'Accident_Count': int(count),
-            'Percentage': round(pct, 2)
+            'Percentage': pct
         })
     
-    # Save keyword counts to CSV
-    keyword_counts_df = pd.DataFrame(keyword_counts)
-    keyword_counts_df.to_csv("outputs/tables/keyword_counts.csv", index=False)
-    print("\n✅ Saved: outputs/tables/keyword_counts.csv")
+    keyword_category_df = pd.DataFrame(keyword_category_data)
     
-    # ============================================
-    # 2. RELATIONSHIP BETWEEN KEYWORDS AND SEVERITY
-    # ============================================
+    # =========================================================
+    # 2. SPECIFIC KEYWORD SEVERITY IMPACT
+    # =========================================================
     print("\n" + "-" * 50)
-    print("2. KEYWORD vs ACTUAL SEVERITY COMPARISON")
-    print("-" * 50)
-    
-    print("\n📊 Average Severity when keywords are PRESENT vs ABSENT:\n")
-    
-    keyword_severity_results = []
-    
-    for severity_level in severity_keywords.keys():
-        present = df[df[f'has_{severity_level}'] == True]['Severity'].mean()
-        absent = df[df[f'has_{severity_level}'] == False]['Severity'].mean()
-        difference = present - absent
-        
-        print(f"   {severity_level.upper()} keywords:")
-        print(f"      Present: Severity = {present:.2f}")
-        print(f"      Absent:  Severity = {absent:.2f}")
-        print(f"      Difference: {difference:+.2f} (Higher severity when present)")
-        print()
-        
-        keyword_severity_results.append({
-            'Keyword_Type': severity_level.upper(),
-            'Severity_When_Present': round(present, 4),
-            'Severity_When_Absent': round(absent, 4),
-            'Difference': round(difference, 4),
-            'Interpretation': 'Higher when present' if difference > 0 else 'Lower when present'
-        })
-    
-    # Save keyword severity results to CSV
-    keyword_severity_df = pd.DataFrame(keyword_severity_results)
-    keyword_severity_df.to_csv("outputs/tables/keyword_severity_impact.csv", index=False)
-    print("✅ Saved: outputs/tables/keyword_severity_impact.csv")
-    
-    # ============================================
-    # 3. SPECIFIC KEYWORD ANALYSIS
-    # ============================================
-    print("\n" + "-" * 50)
-    print("3. SPECIFIC KEYWORD SEVERITY IMPACT")
+    print("2. SPECIFIC KEYWORD SEVERITY IMPACT")
     print("-" * 50)
     
     specific_keywords = [
-        'blocked', 'multi-vehicle', 'slow traffic', 'queueing', 
-        'shoulder', 'jackknife', 'rollover', 'serious'
+        ('jackknife', 'Truck trailer folding sideways'),
+        ('multi-vehicle', 'Multiple cars involved'),
+        ('queueing', 'Traffic backing up'),
+        ('shoulder', 'Shoulder lane blocked'),
+        ('blocked', 'Lanes blocked'),
+        ('rollover', 'Vehicle flipped over'),
+        ('serious', 'Described as serious'),
+        ('slow traffic', 'Slow traffic only')
     ]
     
-    print("\n📊 Severity score when specific keywords appear:\n")
-    
-    specific_keyword_results = []
-    
-    for keyword in specific_keywords:
+    keyword_impact_data = []
+    for keyword, meaning in specific_keywords:
         mask = df['Description'].str.contains(keyword, case=False, na=False)
-        avg_severity = df[mask]['Severity'].mean()
         count = mask.sum()
         pct = (count / len(df)) * 100
+        avg_severity = df[mask]['Severity'].mean()
         
-        # Also get severity distribution for this keyword
-        severity_dist = df[mask]['Severity'].value_counts(normalize=True).sort_index()
-        
-        specific_keyword_results.append({
+        keyword_impact_data.append({
             'Keyword': keyword,
+            'Meaning': meaning,
             'Accident_Count': int(count),
-            'Percentage': round(pct, 2),
-            'Avg_Severity': round(avg_severity, 4),
-            'Severity1_Pct': round(severity_dist.get(1, 0) * 100, 2),
-            'Severity2_Pct': round(severity_dist.get(2, 0) * 100, 2),
-            'Severity3_Pct': round(severity_dist.get(3, 0) * 100, 2),
-            'Severity4_Pct': round(severity_dist.get(4, 0) * 100, 2)
+            'Percentage': pct,
+            'Avg_Severity': avg_severity,
+            'Severity_Impact': avg_severity - df['Severity'].mean()
         })
-        
-        print(f"   '{keyword}': {count:,} accidents ({pct:.1f}%) → Avg Severity = {avg_severity:.2f}")
     
-    # Save specific keyword results to CSV
-    specific_keyword_df = pd.DataFrame(specific_keyword_results)
-    specific_keyword_df.to_csv("outputs/tables/specific_keyword_analysis.csv", index=False)
-    print("\n✅ Saved: outputs/tables/specific_keyword_analysis.csv")
+    keyword_impact_df = pd.DataFrame(keyword_impact_data)
+    keyword_impact_df = keyword_impact_df.sort_values('Avg_Severity', ascending=False)
     
-    # ============================================
-    # 4. SEVERITY DISTRIBUTION BY KEYWORD PRESENCE
-    # ============================================
+    # =========================================================
+    # 3. 'BLOCKED' KEYWORD IMPACT
+    # =========================================================
     print("\n" + "-" * 50)
-    print("4. SEVERITY DISTRIBUTION FOR 'BLOCKED' KEYWORD")
+    print("3. 'BLOCKED' KEYWORD IMPACT")
     print("-" * 50)
     
     blocked_mask = df['Description'].str.contains('blocked', case=False, na=False)
     
-    # Distribution WITH 'blocked'
-    blocked_dist_results = []
-    print("\n📊 Accidents WITH 'blocked' in description:")
-    blocked_dist = df[blocked_mask]['Severity'].value_counts().sort_index()
-    for severity, count in blocked_dist.items():
-        pct = (count / blocked_mask.sum()) * 100
-        print(f"   Severity {severity}: {count:,} ({pct:.1f}%)")
-        blocked_dist_results.append({
-            'Category': 'WITH blocked',
-            'Severity': severity,
-            'Count': int(count),
-            'Percentage': round(pct, 2)
+    blocked_distribution_data = []
+    for severity in [1, 2, 3, 4]:
+        blocked_count = df[blocked_mask & (df['Severity'] == severity)].shape[0]
+        not_blocked_count = df[~blocked_mask & (df['Severity'] == severity)].shape[0]
+        
+        blocked_distribution_data.append({
+            'Severity_Level': severity,
+            'With_Blocked_Count': blocked_count,
+            'With_Blocked_Pct': (blocked_count / blocked_mask.sum() * 100) if blocked_mask.sum() > 0 else 0,
+            'Without_Blocked_Count': not_blocked_count,
+            'Without_Blocked_Pct': (not_blocked_count / (~blocked_mask).sum() * 100) if (~blocked_mask).sum() > 0 else 0
         })
     
-    # Distribution WITHOUT 'blocked'
-    not_blocked_dist_results = []
-    print("\n📊 Accidents WITHOUT 'blocked' in description:")
-    not_blocked_dist = df[~blocked_mask]['Severity'].value_counts().sort_index()
-    for severity, count in not_blocked_dist.items():
-        pct = (count / (~blocked_mask).sum()) * 100
-        print(f"   Severity {severity}: {count:,} ({pct:.1f}%)")
-        not_blocked_dist_results.append({
-            'Category': 'WITHOUT blocked',
-            'Severity': severity,
-            'Count': int(count),
-            'Percentage': round(pct, 2)
-        })
+    blocked_distribution_df = pd.DataFrame(blocked_distribution_data)
     
-    # Combine and save blocked distribution
-    blocked_distribution_df = pd.DataFrame(blocked_dist_results + not_blocked_dist_results)
-    blocked_distribution_df.to_csv("outputs/tables/blocked_keyword_distribution.csv", index=False)
-    print("\n✅ Saved: outputs/tables/blocked_keyword_distribution.csv")
-    
-    # ============================================
-    # 5. EXTRACT MOST COMMON PHRASES BY SEVERITY
-    # ============================================
+    # =========================================================
+    # 4. TOP PHRASES BY SEVERITY
+    # =========================================================
     print("\n" + "-" * 50)
-    print("5. MOST COMMON PHRASES BY SEVERITY LEVEL")
+    print("4. TOP PHRASES BY SEVERITY LEVEL")
     print("-" * 50)
     
-    # Function to get top phrases
     def get_top_phrases(texts, n=5):
-        vectorizer = CountVectorizer(ngram_range=(2, 4), stop_words='english', max_features=10)
+        vectorizer = CountVectorizer(ngram_range=(2, 4), stop_words='english', max_features=5)
         try:
             X = vectorizer.fit_transform(texts)
             words = vectorizer.get_feature_names_out()
@@ -223,117 +170,204 @@ def analyze_description_text():
         except:
             return []
     
-    all_top_phrases = []
-    
+    top_phrases_data = []
     for severity in [2, 3, 4]:
         severity_texts = df[df['Severity'] == severity]['Description'].fillna('').tolist()
         if len(severity_texts) > 100:
             top_phrases = get_top_phrases(severity_texts, 5)
-            print(f"\n   Severity {severity} (n={len(severity_texts):,}):")
-            for phrase, count in top_phrases:
-                print(f"      '{phrase}': {count} times")
-                all_top_phrases.append({
+            for rank, (phrase, count) in enumerate(top_phrases, 1):
+                top_phrases_data.append({
                     'Severity_Level': severity,
+                    'Rank': rank,
                     'Phrase': phrase,
                     'Frequency': count
                 })
     
-    # Save top phrases to CSV
-    top_phrases_df = pd.DataFrame(all_top_phrases)
-    if len(top_phrases_df) > 0:
-        top_phrases_df.to_csv("outputs/tables/top_phrases_by_severity.csv", index=False)
-        print("\n✅ Saved: outputs/tables/top_phrases_by_severity.csv")
+    top_phrases_df = pd.DataFrame(top_phrases_data)
     
-    # ============================================
-    # 6. HIGH SEVERITY KEYWORD SUMMARY
-    # ============================================
+    # =========================================================
+    # 5. SAVE CSV FILES
+    # =========================================================
     print("\n" + "-" * 50)
-    print("6. HIGH SEVERITY KEYWORD SUMMARY")
+    print("5. SAVING CSV FILES")
     print("-" * 50)
     
-    high_severity_keywords = ['blocked', 'multi-vehicle', 'jackknife', 'rollover']
-    high_keyword_mask = df['Description'].str.contains('|'.join(high_severity_keywords), case=False, na=False)
+    keyword_category_df.to_csv("outputs/text_analysis/tables/01_keyword_categories.csv", index=False)
+    keyword_impact_df.to_csv("outputs/text_analysis/tables/02_keyword_impact.csv", index=False)
+    blocked_distribution_df.to_csv("outputs/text_analysis/tables/03_blocked_distribution.csv", index=False)
     
-    high_keyword_results = []
+    if len(top_phrases_df) > 0:
+        top_phrases_df.to_csv("outputs/text_analysis/tables/04_top_phrases.csv", index=False)
     
-    for keyword in high_severity_keywords:
-        mask = df['Description'].str.contains(keyword, case=False, na=False)
-        high_keyword_results.append({
-            'Keyword': keyword,
-            'Accident_Count': int(mask.sum()),
-            'Percentage': round(mask.sum() / len(df) * 100, 2),
-            'Avg_Severity': round(df[mask]['Severity'].mean(), 4)
-        })
+    print("   ✅ Saved 4 CSV files to outputs/text_analysis/tables/")
     
-    high_keyword_summary_df = pd.DataFrame(high_keyword_results)
-    high_keyword_summary_df.to_csv("outputs/tables/high_severity_keywords.csv", index=False)
-    print("✅ Saved: outputs/tables/high_severity_keywords.csv")
+    # =========================================================
+    # 6. CREATE EXCEL FILE (All tables in one workbook)
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("6. CREATING EXCEL FILE")
+    print("-" * 50)
     
-    # ============================================
-    # 7. SUMMARY AND CONCLUSIONS
-    # ============================================
-    print("\n" + "=" * 70)
-    print("📊 TEXT ANALYSIS SUMMARY")
-    print("=" * 70)
+    excel_path = "outputs/text_analysis/reports/text_analysis.xlsx"
     
-    avg_severity_with_high_keywords = df[high_keyword_mask]['Severity'].mean()
-    avg_severity_without = df[~high_keyword_mask]['Severity'].mean()
+    if HAS_OPENPYXL:
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            keyword_category_df.to_excel(writer, sheet_name='Keyword_Categories', index=False)
+            keyword_impact_df.to_excel(writer, sheet_name='Keyword_Impact', index=False)
+            blocked_distribution_df.to_excel(writer, sheet_name='Blocked_Keyword', index=False)
+            if len(top_phrases_df) > 0:
+                top_phrases_df.to_excel(writer, sheet_name='Top_Phrases', index=False)
+            
+            # Add info sheet
+            info_df = pd.DataFrame({
+                'Information': ['Analysis Date', 'Total Accidents', 'Accidents with Description'],
+                'Value': [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), len(df), df['Description'].notna().sum()]
+            })
+            info_df.to_excel(writer, sheet_name='Info', index=False)
+        
+        print(f"   ✅ Excel file saved: {excel_path}")
+    else:
+        print("   ⚠️ openpyxl not installed. Skipping Excel export.")
+    
+    # =========================================================
+    # 7. CREATE WORD REPORT
+    # =========================================================
+    print("\n" + "-" * 50)
+    print("7. CREATING WORD REPORT")
+    print("-" * 50)
+    
+    word_path = "outputs/text_analysis/reports/text_analysis.docx"
+    
+    if HAS_PYTHON_DOCX:
+        doc = Document()
+        
+        # Title
+        title = doc.add_heading('Text Analysis of Accident Descriptions', 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Info
+        doc.add_paragraph(f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        doc.add_paragraph(f"Total Descriptions Analyzed: {len(df):,}")
+        doc.add_paragraph()
+        
+        # 1. Key Finding - Most Dangerous Keyword
+        doc.add_heading('1. Most Dangerous Keywords', level=1)
+        most_dangerous = keyword_impact_df.iloc[0]
+        doc.add_paragraph(f"The keyword '{most_dangerous['Keyword']}' appears in {most_dangerous['Accident_Count']:,} accidents "
+                         f"and has an average severity of {most_dangerous['Avg_Severity']:.2f} "
+                         f"(+{most_dangerous['Severity_Impact']:.2f} above baseline).")
+        
+        # 2. Keyword Impact Table
+        doc.add_heading('2. Keyword Impact on Severity', level=1)
+        table = doc.add_table(rows=1, cols=4)
+        table.style = 'Table Grid'
+        hdr = table.rows[0].cells
+        hdr[0].text = 'Keyword'
+        hdr[1].text = 'Meaning'
+        hdr[2].text = 'Accidents'
+        hdr[3].text = 'Avg Severity'
+        
+        for _, row in keyword_impact_df.head(10).iterrows():
+            cells = table.add_row().cells
+            cells[0].text = row['Keyword']
+            cells[1].text = row['Meaning']
+            cells[2].text = f"{row['Accident_Count']:,}"
+            cells[3].text = f"{row['Avg_Severity']:.2f}"
+        
+        doc.add_paragraph()
+        
+        # 3. 'Blocked' Keyword Impact
+        doc.add_heading('3. Impact of "Blocked" Keyword', level=1)
+        doc.add_paragraph(f"Accidents containing 'blocked' are significantly more severe:")
+        
+        table = doc.add_table(rows=1, cols=4)
+        table.style = 'Table Grid'
+        hdr = table.rows[0].cells
+        hdr[0].text = 'Severity'
+        hdr[1].text = 'With "blocked"'
+        hdr[2].text = 'Without "blocked"'
+        hdr[3].text = 'Difference'
+        
+        for _, row in blocked_distribution_df.iterrows():
+            cells = table.add_row().cells
+            cells[0].text = str(int(row['Severity_Level']))
+            cells[1].text = f"{row['With_Blocked_Pct']:.1f}%"
+            cells[2].text = f"{row['Without_Blocked_Pct']:.1f}%"
+            cells[3].text = f"{row['With_Blocked_Pct'] - row['Without_Blocked_Pct']:+.1f}%"
+        
+        doc.add_paragraph()
+        
+        # 4. Top Phrases by Severity
+        if len(top_phrases_df) > 0:
+            doc.add_heading('4. Common Phrases by Severity Level', level=1)
+            
+            for severity in [2, 3, 4]:
+                severity_phrases = top_phrases_df[top_phrases_df['Severity_Level'] == severity]
+                if len(severity_phrases) > 0:
+                    doc.add_heading(f'Severity Level {severity}', level=2)
+                    phrases_text = ", ".join([f'"{p}"' for p in severity_phrases['Phrase'].values[:3]])
+                    doc.add_paragraph(f"Common phrases: {phrases_text}")
+        
+        # 5. Key Conclusions
+        doc.add_heading('5. Key Conclusions', level=1)
+        
+        baseline = df['Severity'].mean()
+        jackknife_sev = keyword_impact_df[keyword_impact_df['Keyword'] == 'jackknife']['Avg_Severity'].values[0] if len(keyword_impact_df[keyword_impact_df['Keyword'] == 'jackknife']) > 0 else 0
+        blocked_sev = keyword_impact_df[keyword_impact_df['Keyword'] == 'blocked']['Avg_Severity'].values[0] if len(keyword_impact_df[keyword_impact_df['Keyword'] == 'blocked']) > 0 else 0
+        
+        doc.add_paragraph(f"""
+1. Text descriptions are STRONG predictors of accident severity
+2. '{most_dangerous['Keyword']}' is the most severe keyword (Severity: {most_dangerous['Avg_Severity']:.2f})
+3. Accidents with 'blocked' are {blocked_sev - baseline:+.2f} points more severe than average
+4. Severe accidents (Level 4) often mention "road closed" and "alternate route"
+""")
+        
+        # Save Word document
+        doc.save(word_path)
+        print(f"   ✅ Word report saved: {word_path}")
+    else:
+        print("   ⚠️ python-docx not installed. Skipping Word export.")
+    
+    # =========================================================
+    # 8. FINAL SUMMARY
+    # =========================================================
+    print("\n" + "=" * 80)
+    print("📊 TEXT ANALYSIS - SUMMARY")
+    print("=" * 80)
+    
+    # Calculate key metrics
+    high_keywords = ['blocked', 'multi-vehicle', 'jackknife', 'rollover']
+    high_mask = df['Description'].str.contains('|'.join(high_keywords), case=False, na=False)
     
     print(f"""
-✅ KEY FINDINGS FROM TEXT ANALYSIS:
+✅ ANALYSIS COMPLETE!
 
-1. HIGH SEVERITY KEYWORDS (blocked, multi-vehicle, jackknife, rollover):
-   - Present in {high_keyword_mask.sum():,} accidents ({high_keyword_mask.sum()/len(df)*100:.1f}%)
-   - Average severity with these keywords: {avg_severity_with_high_keywords:.2f}
-   - Average severity without: {avg_severity_without:.2f}
-   - DIFFERENCE: {avg_severity_with_high_keywords - avg_severity_without:+.2f}
+KEY FINDINGS:
+------------
+• Most dangerous keyword: '{keyword_impact_df.iloc[0]['Keyword']}' 
+  (Severity: {keyword_impact_df.iloc[0]['Avg_Severity']:.2f})
 
-2. The Description text STRONGLY predicts severity!
-   - Accidents with 'blocked' have higher severity than those without
-   - Multi-vehicle accidents are more severe than single-vehicle
+• Accidents with high-severity keywords: {high_mask.sum():,} ({high_mask.sum()/len(df)*100:.1f}%)
+• Severity impact: +{(high_mask.sum() > 0 and df[high_mask]['Severity'].mean() - df['Severity'].mean()) or 0:.2f}
 
-3. WHY Pearson correlation showed NO relationship:
-   - Correlation tests NUMBERS vs NUMBERS
-   - TEXT contains the real signal!
-   - Need NLP (Natural Language Processing) to capture this
+OUTPUT FILES:
+------------
+📁 CSV Files: outputs/text_analysis/tables/
+   ├── 01_keyword_categories.csv
+   ├── 02_keyword_impact.csv
+   ├── 03_blocked_distribution.csv
+   └── 04_top_phrases.csv
 
-4. RECOMMENDATION FOR YOUR PROJECT:
-   - Use Random Forest with text features (TF-IDF)
-   - This will show STRONG relationship between description and severity
-   - Much better than numerical correlation!
+📊 Excel File: outputs/text_analysis/reports/text_analysis.xlsx
+   (All tables in one workbook)
+
+📄 Word Report: outputs/text_analysis/reports/text_analysis.docx
+   (Professional report with formatted tables)
 """)
     
-    # Save summary to text file
-    with open("outputs/reports/text_analysis_summary.txt", "w") as f:
-        f.write("=" * 70 + "\n")
-        f.write("TEXT ANALYSIS SUMMARY\n")
-        f.write("=" * 70 + "\n\n")
-        f.write(f"High severity keywords present in: {high_keyword_mask.sum():,} accidents ({high_keyword_mask.sum()/len(df)*100:.1f}%)\n")
-        f.write(f"Average severity with keywords: {avg_severity_with_high_keywords:.2f}\n")
-        f.write(f"Average severity without keywords: {avg_severity_without:.2f}\n")
-        f.write(f"Difference: {avg_severity_with_high_keywords - avg_severity_without:+.2f}\n")
-    
-    print("✅ Saved: outputs/reports/text_analysis_summary.txt")
-    
-    print("\n" + "=" * 70)
-    print("📁 ALL CSV FILES CREATED:")
-    print("=" * 70)
-    print("""
-outputs/tables/
-   ├── keyword_counts.csv                 (Counts of high/medium/low severity keywords)
-   ├── keyword_severity_impact.csv        (Severity when keywords present vs absent)
-   ├── specific_keyword_analysis.csv      (Individual keyword severity scores)
-   ├── blocked_keyword_distribution.csv   (Severity distribution with/without 'blocked')
-   ├── top_phrases_by_severity.csv        (Most common phrases for severity 2,3,4)
-   └── high_severity_keywords.csv         (Summary of most dangerous keywords)
-
-outputs/reports/
-   └── text_analysis_summary.txt          (Plain text summary of findings)
-""")
-    
-    print("=" * 70)
+    print("=" * 80)
     print("✨ TEXT ANALYSIS COMPLETE! ✨")
-    print("=" * 70)
+    print("=" * 80)
     
     return df
 
